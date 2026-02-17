@@ -1,0 +1,212 @@
+<?php require "auth.php"; ?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>IoT Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+/* === نفس الـ CSS كما هو === */
+body{
+  font-family:Arial, sans-serif;
+  margin:0;
+  padding:0;
+  background:#f8fafc;
+  color:#1e293b;
+  transition: background 0.3s, color 0.3s;
+  overflow-x:hidden;
+}
+body.dark{ background:#1e293b; color:white; }
+.topbar{position:fixed;top:0;left:0;right:0;height:55px;background:#1e293b;color:white;display:flex;align-items:center;justify-content:space-between;padding:0 20px;z-index:999;font-weight:600;letter-spacing:0.5px;word-spacing:3px;}
+#menuButton{background:#3b82f6;color:white;border:none;padding:6px 10px;font-size:22px;border-radius:5px;cursor:pointer;transition:0.3s;display:flex;align-items:center;justify-content:center;z-index:1001;}
+#menuButton:hover { background: #2563eb; }
+#menuButton.open { transform: rotate(90deg); }
+#themeButton{background:#fbbf24;color:white;border:none;padding:6px 10px;font-size:14px;border-radius:5px;cursor:pointer;}
+#sidebar{position:fixed;top:0;left:-280px;width:280px;height:100%;background:#1e293b;color:white;padding:20px;transition:left 0.3s ease;z-index:1000;overflow-y:auto;display:flex;flex-direction:column;gap:15px;}
+#sidebar.active{ left:0; }
+#sidebar h2, #sidebar h3{ margin-top:0; color:#3b82f6; }
+#sidebar a{ color:white; text-decoration:none; padding:8px 12px; border-radius:5px; transition:background 0.3s; }
+#sidebar a:hover{ background:#334155; }
+.container{padding:80px 20px;max-width:1300px;margin:auto;}
+.gauges{display:flex;flex-wrap:wrap;justify-content:center;gap:25px;margin-bottom:25px;}
+.card-circle{width:300px;background:white;border-radius:15px;padding:15px;text-align:center;box-shadow:0 4px 10px rgba(0,0,0,0.1);}
+.card-circle.dark{ background:#334155; color:white; }
+.circle-bg{ fill:none; stroke:#e2e8f0; stroke-width:15; }
+.circle-progress{ fill:none; stroke-width:15; stroke-linecap:round; transform:rotate(-90deg); transform-origin:50% 50%; transition: stroke-dasharray 0.5s ease, stroke 0.5s ease; }
+.value-text{ font-weight:bold; font-size:18px; dominant-baseline:middle; text-anchor:middle; }
+.threshold-container{display:flex;justify-content:space-between;margin-top:10px;gap:5px;}
+.threshold-container label{display:flex;flex-direction:column;font-size:12px;color:#334155;}
+.threshold-container input{padding:5px;border-radius:5px;border:1px solid #cbd5e1;width:60px;text-align:center;}
+.save-button{margin-top:10px;padding:6px 12px;background:#3b82f6;color:white;border:none;border-radius:5px;cursor:pointer;font-weight:bold;}
+.save-button:hover{ background:#2563eb; }
+.panel{background:white;padding:15px;border-radius:10px;box-shadow:0 2px 6px rgba(0,0,0,0.08);margin-bottom:20px;}
+.panel.dark{ background:#334155; color:white; }
+table{ width:100%; border-collapse:collapse; }
+th, td{ padding:8px; text-align:center; border-bottom:1px solid #ccc; }
+td.alert{ background:#f87171; color:white; font-weight:bold; }
+td.warning{ background:#facc15; color:black; font-weight:bold; }
+h1{ margin-top:60px; margin-bottom:20px; text-align:center; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <button id="menuButton" onclick="toggleSidebar()">☰</button>
+  <div>IoT Monitoring System</div>
+  <div>
+    🟢 Connected
+    <button id="themeButton" onclick="toggleTheme()">🌗</button>
+  </div>
+</div>
+
+<div id="sidebar">
+  <h2>Menu</h2>
+  <a href="dashboard.html">🏠 Dashboard</a>
+  <a href="alerts.html">🚨 Alerts</a>
+  <a href="devices.html">🖥️ Devices</a>
+  <a href="settings.html">⚙️ Settings</a>
+  <a href="help.html">❓ Help</a>
+  <a href="about.html">ℹ️ About</a>
+  <a href="index.php">🔒 Logout</a>
+</div>
+
+<div class="container">
+
+  <h1>Sensors</h1>
+
+  <div class="gauges" id="gaugesContainer"></div>
+
+  <div class="panel" id="overviewPanel">
+    <h3>System Overview</h3>
+    <canvas id="overviewChart"></canvas>
+  </div>
+
+  <div class="panel" id="alertsPanel">
+    <h3>Live Alerts</h3>
+    <ul id="alertsList"></ul>
+  </div>
+
+  <div class="panel" id="tablePanel">
+    <h3>Latest Readings</h3>
+    <table id="readingsTable"></table>
+  </div>
+
+</div>
+
+<script>
+function toggleSidebar(){ document.getElementById("sidebar").classList.toggle("active"); document.getElementById("menuButton").classList.toggle("open"); }
+function toggleTheme(){ document.body.classList.toggle("dark"); document.querySelectorAll(".card-circle, .panel").forEach(el=>{ el.classList.toggle("dark"); }); }
+
+/* Sensors (القيم حالياً وهمية) */
+const sensors=[
+  {id:1,name:"Temperature Sensor",value:25,unit:"°C",min:15,max:30,history:[],labels:[]},
+  {id:2,name:"Humidity Sensor",value:60,unit:"%",min:30,max:70,history:[],labels:[]},
+  {id:3,name:"Gas Sensor",value:200,unit:"ppm",min:100,max:300,history:[],labels:[]},
+  {id:4,name:"Pressure Sensor",value:1013,unit:"hPa",min:980,max:1050,history:[],labels:[]}
+];
+
+let overviewChart;
+
+function renderGauges(){
+  const container=document.getElementById("gaugesContainer");
+  container.innerHTML="";
+  sensors.forEach(s=>{
+    s.history.push(s.value);
+    s.labels.push(new Date().toLocaleTimeString());
+    if(s.history.length>20){ s.history.shift(); s.labels.shift(); }
+
+    let color="#4ade80";
+    let status="✅ Normal";
+    if(s.value>s.max){ color="#f87171"; status="⚠️ Above Maximum"; }
+    else if(s.value<s.min){ color="#facc15"; status="⚠️ Below Minimum"; }
+
+    const percent=Math.min(100, Math.max(0, ((s.value-s.min)/(s.max-s.min))*100));
+    const radius=60;
+    const circumference=2*Math.PI*radius;
+    const dash=(percent/100)*circumference;
+
+    const card=document.createElement("div");
+    card.className="card-circle";
+    card.innerHTML=`
+      <svg width="150" height="150">
+        <circle class="circle-bg" cx="75" cy="75" r="${radius}"/>
+        <circle class="circle-progress" cx="75" cy="75" r="${radius}" stroke="${color}" stroke-dasharray="${dash} ${circumference}"/>
+        <text x="75" y="75" class="value-text">${s.value}${s.unit}</text>
+      </svg>
+      <h3>${s.name}</h3>
+      <p style="color:${color}; font-size:14px;">${status}</p>
+      <div class="threshold-container">
+        <label>Min<input type="number" value="${s.min}" id="min-${s.id}"></label>
+        <label>Max<input type="number" value="${s.max}" id="max-${s.id}"></label>
+      </div>
+      <button class="save-button" onclick="updateThreshold(${s.id})">💾 Save</button>
+      <canvas id="chart-${s.id}" height="150"></canvas>
+    `;
+    container.appendChild(card);
+
+    new Chart(document.getElementById(`chart-${s.id}`), {
+      type: 'line',
+      data: { labels: s.labels, datasets: [{ label: s.name, data: s.history, borderColor: color, backgroundColor: 'rgba(0,0,0,0)', tension:0.3, pointRadius:3 }] },
+      options: { responsive:true, plugins:{ legend:{display:false} }, scales:{ y:{ beginAtZero:false, min:s.min-(s.max-s.min)*0.1, max:s.max+(s.max-s.min)*0.1, title:{ display:true, text:s.unit } }, x:{ title:{ display:true, text:'Time' } } } }
+    });
+  });
+}
+
+function updateThreshold(id){
+  const s=sensors.find(x=>x.id===id);
+  s.min=parseFloat(document.getElementById(`min-${id}`).value);
+  s.max=parseFloat(document.getElementById(`max-${id}`).value);
+  renderDashboard();
+}
+
+function renderDashboard(){
+  renderGauges();
+
+  const alerts=sensors.filter(s=>s.value>s.max||s.value<s.min);
+  const alertsList=document.getElementById("alertsList");
+  alertsList.innerHTML=alerts.map(a=>{
+    const time=new Date().toLocaleTimeString();
+    const type=a.value>a.max?"Critical":"Warning";
+    return `<li>[${time}] ${a.name} out of range (${type})</li>`;
+  }).join("") || "<li>No alerts</li>";
+
+  const table=document.getElementById("readingsTable");
+  table.innerHTML="<tr><th>Sensor</th><th>Value</th><th>Status</th></tr>";
+  sensors.forEach(s=>{
+    let status="Normal", cls="";
+    if(s.value>s.max){ status="Above Max"; cls="alert"; }
+    else if(s.value<s.min){ status="Below Min"; cls="warning"; }
+    table.innerHTML+=`<tr class="${cls}"><td>${s.name}</td><td>${s.value} ${s.unit}</td><td>${status}</td></tr>`;
+  });
+
+  const labels=sensors.map(s=>s.name);
+  const data=sensors.map(s=>s.value);
+  if(!overviewChart){
+    overviewChart=new Chart(document.getElementById("overviewChart"),{
+      type:"bar",
+      data:{ labels, datasets:[{ label:"Current Value", data, backgroundColor:data.map((v,i)=>sensors[i].value>sensors[i].max?"#f87171":sensors[i].value<sensors[i].min?"#facc15":"#4ade80") }] },
+      options:{ plugins:{ legend:{display:false} }, scales:{ y:{ beginAtZero:true, title:{ display:true, text:"Value" } }, x:{ title:{ display:true, text:"Sensor" } } } }
+    });
+  }else{
+    overviewChart.data.datasets[0].data=data;
+    overviewChart.data.datasets[0].backgroundColor=data.map((v,i)=>sensors[i].value>sensors[i].max?"#f87171":sensors[i].value<sensors[i].min?"#facc15":"#4ade80");
+    overviewChart.update();
+  }
+}
+
+/* === دالة تحديث وهمية للقيم حالياً، لاحقاً ستستبدل بـ fetch من Raspberry === */
+function updateValues(){
+  sensors.forEach(s=>{ s.value += Math.floor(Math.random()*3-1); });
+  renderDashboard();
+}
+
+renderDashboard();
+setInterval(updateValues,5000);
+
+/* === Theme === */
+const theme = localStorage.getItem("theme") || "light";
+document.body.classList.toggle("dark", theme === "dark");
+</script>
+
+</body>
+</html>
