@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Raspberry Pi Dashboard</title>
+
+<style>
+
+body{
+font-family: Arial;
+background:#f4f6f9;
+margin:0;
+padding:0;
+text-align:center;
+}
+
+header{
+background:#24292e;
+color:white;
+padding:20px;
+font-size:24px;
+}
+
+.container{
+width:80%;
+max-width:700px;
+margin:40px auto;
+background:white;
+padding:30px;
+border-radius:10px;
+box-shadow:0 5px 15px rgba(0,0,0,0.1);
+}
+
+h2{
+margin-bottom:20px;
+}
+
+pre{
+background:#0d1117;
+color:#58a6ff;
+padding:20px;
+border-radius:8px;
+text-align:left;
+overflow:auto;
+}
+
+.status{
+margin-top:10px;
+font-size:14px;
+color:gray;
+}
+
+</style>
+</head>
+
+<body>
+
+<header>
+Raspberry Pi Sensor Dashboard
+</header>
+
+<div class="container">
+
+<h2>Received Data</h2>
+
+<pre id="data">Loading...</pre>
+
+<div class="status" id="status">
+Waiting for data...
+</div>
+
+</div>
+
+<script>
+
+function loadData(){
+
+fetch("data.json")
+.then(response => response.json())
+.then(data => {
+
+document.getElementById("data").textContent =
+JSON.stringify(data,null,2);
+
+document.getElementById("status").textContent =
+"Last update: " + new Date().toLocaleTimeString();
+
+})
+.catch(error => {
+
+document.getElementById("data").textContent =
+"Error loading data";
+
+});
+
+}
+
+loadData();
+
+setInterval(loadData,5000);
+
+</script>
+
+</body>
+</html>
