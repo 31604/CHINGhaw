@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Raspberry Dashboard</title>
+</head>
+<body>
+    <h1>📡 Live Raspberry Data</h1>
+
+    <p>Message: <span id="message"></span></p>
+    <p>Temperature: <span id="temp"></span> °C</p>
+    <p>Humidity: <span id="hum"></span> %</p>
+    <p>Device: <span id="device"></span></p>
+
+    <script>
+        async function loadData() {
+            const res = await fetch("/data");
+            const data = await res.json();
+
+            document.getElementById("message").innerText = data.message;
+            document.getElementById("temp").innerText = data.temperature;
+            document.getElementById("hum").innerText = data.humidity;
+            document.getElementById("device").innerText = data.device;
+        }
+
+        setInterval(loadData, 2000);
+        loadData();
+    </script>
+</body>
+</html>
