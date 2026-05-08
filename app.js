@@ -1,31 +1,27 @@
-// رابط ngrok الخاص بك
-const baseUrl = "https://obsessive-unwitting-ambition.ngrok-free.dev";
+const token = "nJeB6ukQH4Yngrp2jXuW";
 
-// Device ID الذي أعطيتني إياه
-const deviceId = "nJeB6ukQH4Yngrp2jXuW";
-
-// API من ThingsBoard
-const url = baseUrl +
-"/api/plugins/telemetry/" +
-deviceId +
-"/values/timeseries?keys=temperature,humidity";
+const url =
+"https://obsessive-unwitting-ambition.ngrok-free.dev/api/v1/" +
+token +
+"/telemetry";
 
 async function loadData() {
     try {
         const res = await fetch(url);
         const data = await res.json();
 
+        console.log(data);
+
         document.getElementById("temp").innerText =
-            data.temperature?.[0]?.value ?? "no data";
+            data.temperature ?? "--";
 
         document.getElementById("hum").innerText =
-            data.humidity?.[0]?.value ?? "no data";
+            data.humidity ?? "--";
 
     } catch (err) {
-        console.log("Error:", err);
+        console.log("error", err);
     }
 }
 
-// تحديث كل 5 ثواني
 setInterval(loadData, 5000);
 loadData();
