@@ -2,7 +2,7 @@
 const baseUrl = "https://obsessive-unwitting-ambition.ngrok-free.dev";
 
 // Device ID الذي أعطيتني إياه
-const deviceId = "f7575be0-4af0-11f1-837c-a5e33e2622a3";
+const deviceId = "nJeB6ukQH4Yngrp2jXuW";
 
 // API من ThingsBoard
 const url = baseUrl +
